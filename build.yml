@@ -6,6 +6,37 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: unzip -o project.zip -d proj
+      - name: Hoehe fixen
+        run: |
+          python3 - <<'EOF'
+          p='proj/app/src/main/java/de/sonder/keyboard/KeyboardService.kt'
+          s=open(p,encoding='utf-8').read()
+          a=s.index('        val w = WebView(this)')
+          e='        web = w\n        return w\n'
+          b=s.index(e)+len(e)
+          new="""        val w = WebView(this)
+                  w.settings.javaScriptEnabled = true
+                  w.addJavascriptInterface(Bridge(), "Android")
+                  w.loadUrl("file:///android_asset/keyboard.html")
+                  val dm = resources.displayMetrics
+                  val h = minOf((320 * dm.density).toInt(), (dm.heightPixels * 0.55).toInt())
+                  val holder = object : FrameLayout(this) {
+                      override fun onMeasure(wSpec: Int, hSpec: Int) {
+                          super.onMeasure(wSpec, MeasureSpec.makeMeasureSpec(h, MeasureSpec.EXACTLY))
+                      }
+                  }
+                  holder.addView(w, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+                  web = w
+                  return holder
+          """
+          s=s[:a]+new+s[b:]
+          s=s.replace('import android.view.inputmethod.InputMethodManager','import android.view.inputmethod.InputMethodManager\nimport android.widget.FrameLayout')
+          open(p,'w',encoding='utf-8').write(s)
+          h='proj/app/src/main/assets/keyboard.html'
+          t=open(h,encoding='utf-8').read()
+          t=t.replace('.k{flex:1;min-width:0;height:44px;','.k{flex:1;min-width:0;height:clamp(30px,calc((100vh - 90px)/5),46px);',1)
+          open(h,'w',encoding='utf-8').write(t)
+          EOF
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
